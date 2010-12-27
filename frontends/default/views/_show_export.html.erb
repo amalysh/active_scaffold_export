@@ -8,7 +8,7 @@
 <div class="columns checkbox-list"> 
 <% export_config.columns.each do |column| -%>
   <div class="column checkbox-wrapper">
-    <%= content_tag(:label, check_box_tag("export_columns[#{column.name}]", 1, !export_config.default_deselected_columns.include?(column.name)) + "&nbsp;#{column.label}") %>
+    <%= content_tag(:label, check_box_tag("export_columns[#{column.name}]", 1, !export_config.default_deselected_columns.include?(column.name)) + " #{column.label}") %>
   </div>
 <% end -%>  
 &nbsp;
