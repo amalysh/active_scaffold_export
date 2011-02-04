@@ -4,8 +4,8 @@ module ActiveScaffold::Actions
       base.before_filter :export_authorized?, :only => [:export]
       base.before_filter :init_session_var
 
-      as_export_plugin_path = File.join(Rails.root, 'vendor', 'plugins', ActiveScaffold::Config::Export.plugin_directory, 'frontends', 'default' , 'views')
-      
+      as_export_plugin_path = File.join(ActiveScaffold::Config::Export.plugin_directory, 'frontends', 'default' , 'views')
+
       base.add_active_scaffold_path as_export_plugin_path
     end
 
@@ -18,11 +18,7 @@ module ActiveScaffold::Actions
       export_config = active_scaffold_config.export
       respond_to do |wants|
         wants.html do
-          if successful?
-            render(:partial => 'show_export', :layout => true)
-          else
-            return_to_main
-          end
+          render(:partial => 'show_export', :layout => true)
         end
         wants.js do
           render(:partial => 'show_export', :layout => false)
@@ -54,13 +50,18 @@ module ActiveScaffold::Actions
         response.headers['Expires'] = "0"
       end
 
-      response.headers['Content-type'] = Mime::CSV
+      response.headers['Content-type'] = 'text/csv'
       response.headers['Content-Disposition'] = "attachment; filename=#{export_file_name}"
 
+      @export_columns = export_config.columns.reject { |col| params[:export_columns][col.name.to_sym].nil? }
+      includes_for_export_columns = @export_columns.collect{ |col| col.includes }.flatten.uniq.compact
+      self.active_scaffold_includes.concat includes_for_export_columns
+      @export_config = export_config
+
       # start streaming output
-      render :text => proc { |response, output|
-        find_items_for_export do
-          erase_render_results
+      self.response_body = proc { |response, output|
+        find_items_for_export do |records|
+          @records = records
           str = render_to_string :partial => 'export', :layout => false
           output.write(str)
           params[:skip_header] = 'true' # skip header on the next run
@@ -69,48 +70,32 @@ module ActiveScaffold::Actions
     end
 
     protected
-
     # The actual algorithm to do the export
     def find_items_for_export(&block)
-      export_config = active_scaffold_config.export
-      export_columns = export_config.columns.reject { |col| params[:export_columns][col.name.to_sym].nil? }
-
-      includes_for_export_columns = export_columns.collect{ |col| col.includes }.flatten.uniq.compact
-      self.active_scaffold_joins.concat includes_for_export_columns
-
-      find_options = { :sorting => 
+      find_options = { :sorting =>
         active_scaffold_config.list.user.sorting.nil? ?
-          active_scaffold_config.list.sorting : active_scaffold_config.list.user.sorting
+          active_scaffold_config.list.sorting : active_scaffold_config.list.user.sorting,
+        :pagination => true
       }
       params[:search] = session[:search]
       do_search rescue nil
       params[:segment_id] = session[:segment_id]
       do_segment_search rescue nil
-      @export_config = export_config
-      @export_columns = export_columns
+
       if params[:full_download] == 'true'
         find_options.merge!({
           :per_page => 10000,
           :page => 1
         })
-        page = find_page(find_options)
-        unless page.nil?
-          pager = page.pager
-          pager.each do |page|
-            @records = page.items
-            yield
-          end
-        else
-          @records = page.items
-          yield
+        find_page(find_options).pager.each do |page|
+          yield page.items
         end
       else
         find_options.merge!({
           :per_page => active_scaffold_config.list.user.per_page,
           :page => active_scaffold_config.list.user.page
         })
-        @records = find_page(find_options).items
-        yield
+        yield find_page(find_options).items
       end
     end
 

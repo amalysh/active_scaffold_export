@@ -1,5 +1,4 @@
 <%
-  require 'fastercsv'
   fcsv_options = {
     :row_sep => "\n",
     :col_sep => params[:delimiter],
@@ -15,4 +14,4 @@
       }
     end
   end
--%><%= data -%>
+-%><%= data.html_safe -%>

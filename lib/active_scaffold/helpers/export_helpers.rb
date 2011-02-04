@@ -2,6 +2,22 @@ module ActiveScaffold
   module Helpers
     # Helpers that assist with the rendering of a Export Column
     module ExportHelpers
+      def self.included(base)
+        base.alias_method_chain :active_scaffold_stylesheets, :export
+        base.alias_method_chain :active_scaffold_ie_stylesheets, :export
+      end
+
+      # Provides stylesheets to include with +stylesheet_link_tag+
+      def active_scaffold_stylesheets_with_export(frontend = :default)
+        active_scaffold_stylesheets_without_export.to_a << ActiveScaffold::Config::Core.asset_path("export-stylesheet.css", frontend)
+      end
+      
+
+      # Provides stylesheets for IE to include with +stylesheet_link_tag+
+      def active_scaffold_ie_stylesheets_with_export(frontend = :default)
+        active_scaffold_ie_stylesheets_without_export.to_a << ActiveScaffold::Config::Core.asset_path("export-stylesheet-ie.css", frontend)
+      end
+
       ## individual columns can be overridden by defining
       # a helper method <column_name>_export_column(record)
       # You can customize the output of all columns by
@@ -46,7 +62,7 @@ module ActiveScaffold
 
       def format_plural_association_export_column(association_records)
         firsts = association_records.first(4).collect { |v| v.to_label }
-        firsts[3] = '…' if firsts.length == 4
+        firsts[4] = "â€¦" if firsts.length == 4
         format_value(firsts.join(','))
       end
 
